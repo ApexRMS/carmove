@@ -1,4 +1,10 @@
-﻿
+﻿'*********************************************************************************************
+' Caribou Movement: A SyncroSim Module for simulating movement patterns of caribou populations
+' and their interaction with industrial developments.
+'
+' Copyright © 2007-2018 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.
+'*********************************************************************************************
+
 Class DevelopmentInputDataFeedView
 
     Public Overrides Sub LoadDataFeed(dataFeed As Core.DataFeed)
