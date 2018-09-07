@@ -14,8 +14,6 @@ Class Runtime
 
     Public Overrides Sub Transform()
 
-        MyBase.Transform()
-
         Me.NormalizeRunControl()
         Me.RunCaribouMovementModel()
 
