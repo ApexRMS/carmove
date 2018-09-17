@@ -21,9 +21,9 @@ class SynrosimDB:
             cur = self.con.cursor()
             cur.execute('SELECT * from SSim_Version')
             data = cur.fetchone()
-            self.ssim_version = int(data['Version'])
-            # Must be at least v4 to have the correct Output/Input file structure
-            self.isValidVersion = self.ssim_version >= 9
+            self.ssim_version = int(data['SchemaVersion'])
+            # Must be at least v36 to have the correct Output/Input file structure, as well as SSim_File(s)->SSim_SysFolder,...
+            self.isValidVersion = self.ssim_version >= 36
 
             # It can be a valid DB even tho its obsolete.
             self.isValidDB = True
@@ -121,7 +121,7 @@ class SynrosimDB:
 
         cur = self.con.cursor()
 
-        sql = "select * from SSim_Files"
+        sql = "select * from SSim_SysFolder"
 
         cur.execute(sql)
         return cur.fetchone()
