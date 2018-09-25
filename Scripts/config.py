@@ -1,7 +1,11 @@
 ﻿import os
 import sys
 
+from caribouUtils import createDevIDAttr
+
 __author__ = 'Tom'
+
+
 
 class Config:
 
@@ -114,7 +118,12 @@ class Config:
             if self.ExistingRoadsShapeFile == "":
                 sys.exit("Fatal Error: The Existing Road Shapefile must be defined if 'NumNewDev' is <>0.")
 
-
+        # What's the default Development Attribute value ( used when Attribute DEV_ID not defined in Dev or Roads shapefile
+        self.DefaultDevID = 0
+        for stratum in self.Strata:
+            val = int(stratum['DevID'])
+            if val > 0 & val < self.DefaultDevID:
+                self.DefaultDevID = val
 
         return
 

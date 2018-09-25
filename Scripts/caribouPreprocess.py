@@ -173,14 +173,14 @@ def extractCollarPointsValues(config):
     collarData = rfn.append_fields(collarData,
                                    names=['CLIMATE_VAL', 'DEV_VAL', 'VEG_VAL', 'STRATUM_ID','STRATUM_DESC',
                                           'HARVEST_ZONE', 'OUT_OF_BOUNDS', 'DISTANCE','RELATION_TO_ZOI','RANGE_ASSESSMENT_AREA'],
-                                   dtypes=['S50', 'bool', '<i4', '<i4','S50', 'bool', 'S10', 'f8','S50','S20'],
-                                   data=[cc.NO_DATA_VALUE, False, cc.NO_DATA_VALUE, cc.NO_DATA_VALUE, "", False, "",
+                                   dtypes=['S50', '<i4', '<i4', '<i4','S50', 'bool', 'S10', 'f8','S50','S20'],
+                                   data=[cc.NO_DATA_VALUE, 0, cc.NO_DATA_VALUE, cc.NO_DATA_VALUE, "", False, "",
                                          0.0,"",""],
                                    usemask=False, asrecarray=True)
 
     # Fill in default values
     collarData['CLIMATE_VAL'] = cc.NO_DATA_VALUE
-    collarData['DEV_VAL'] = False
+    collarData['DEV_VAL'] = 0
     collarData['VEG_VAL'] = cc.NO_DATA_VALUE
     collarData['STRATUM_ID'] = cc.NO_DATA_VALUE
     collarData['STRATUM_DESC'] = ""
@@ -214,7 +214,7 @@ def extractCollarPointsValues(config):
     if climateLayer.GetLayerDefn().GetFieldIndex(cc.CLIMATE_LAYER_ATTRIBUTE_NAME) == -1:
         sys.exit("Climate Shapefile '{0}' doesn\'t contain the expected attribute {1}.".format(filename,
                                                                                                cc.CLIMATE_LAYER_ATTRIBUTE_NAME))
-    print("\tLoaded Climate Shapefile '{0}".format(filename))
+    print("\tLoaded Climate Shapefile '{0}'".format(filename))
 
     # load the  Range Assessment Area File, if specified
     raaLayer = None
@@ -234,7 +234,7 @@ def extractCollarPointsValues(config):
         if raaLayer.GetLayerDefn().GetFieldIndex(cc.RANGE_ASSESSMENT_AREA_LAYER_ATTRIBUTE_NAME) == -1:
             sys.exit("Range Assessment Area  Shapefile '{0}' doesn\'t contain the expected attribute {1}.".format(filename,
                                                                                                    cc.RANGE_ASSESSMENT_AREA_LAYER_ATTRIBUTE_NAME))
-        print("\tLoaded Range Assessment Area Shapefile '{0}".format(filename))
+        print("\tLoaded Range Assessment Area Shapefile '{0}'".format(filename))
 
     # Load the Veg Raster
     filename = config.VegRaster
@@ -242,7 +242,7 @@ def extractCollarPointsValues(config):
     if ds_Veg is None:
         sys.exit("Cannot open Vegetation Raster file '{0}'".format(filename))
 
-    print("\tLoaded Vegetation Raster '{0}".format(filename))
+    print("\tLoaded Vegetation Raster '{0}'".format(filename))
 
     pointIdx = 0
     lastIteration = 0
@@ -273,15 +273,11 @@ def extractCollarPointsValues(config):
                 if dsHz is None:
                     sys.exit("Could not open Harvest Zone Shapefile '{0}' file".format(hzFilename))
 
-                print("\tLoaded Harvest Zone Shapefile '{0}".format(hzFilename))
+                print("\tLoaded Harvest Zone Shapefile '{0}'".format(hzFilename))
 
                 hzLayer = dsHz.GetLayer()
                 if hzLayer is None:
                     sys.exit("Could not open Harvest Zone Shapefile '{0}' layer".format(hzFilename))
-
-                # if hzLayer.GetLayerDefn().GetFieldIndex(cc.DEV_LAYER_ATTRIBUTE_NAME) == -1:
-                # sys.exit('Harvest Zone Shapefile {0} doesnt contain the expected attribute {1}.'.format(hzFilename,
-                #                                                                                             cc.HARVEST_ZONE_LAYER_ATTRIBUTE_NAME))
 
 
                 devBufFilename = config.getWorkingFilePath(cc.ZOI_FILENAME.format(iterIdx))
@@ -296,7 +292,7 @@ def extractCollarPointsValues(config):
                     if devLayer is None:
                         sys.exit("Could not open ZOI Development Shapefile '{0}' layer")
 
-                    print("\tLoaded  ZOI Development Shapefile '{0}".format(devBufFilename))
+                    print("\tLoaded  ZOI Development Shapefile '{0}'".format(devBufFilename))
 
         # Lets see if we have intersection with Climate Shapefile
         climateVal = getVectorLayerAttrVal(point['LON'], point['LAT'], climateLayer, cc.CLIMATE_LAYER_ATTRIBUTE_NAME)
@@ -310,11 +306,15 @@ def extractCollarPointsValues(config):
             point['RANGE_ASSESSMENT_AREA'] = raaVal
 
         # Lets see if we have intersection with Development Shapefile
-        # for devVal we just concerned to with presence/absence.
         if config.ExistingDevShapefile == "":
-            point['DEV_VAL'] = False
+            point['DEV_VAL'] = 0
         else:
-            point['DEV_VAL'] = getVectorLayerContains(point['LON'], point['LAT'], devLayer)
+            # If we dont get a hit, then use a value of 0 ( convention for FALSE state, now that Dev supports Attr values
+            val = getVectorLayerAttrVal(point['LON'], point['LAT'], devLayer,cc.DEV_LAYER_ATTRIBUTE_NAME)
+            if val == cc.NO_DATA_VALUE:
+                point['DEV_VAL'] = 0
+            else:
+                point['DEV_VAL'] = val
 
         # Relation To ZOI processing
         relationToZOI = getRelationToZOI(collarData, pointIdx, devLayer)
@@ -353,7 +353,7 @@ def extractCollarPointsValues(config):
 
         # DEVNOTE: I tried to use masks to filter to working on a iteration at a time, but the mask only produces a
         # copy of the source numpy array, so any change wouldnt take. The following loops seem a little bit overly
-        # complicated, but work. The ideal mechanism probably would be Panda, but this isn't included in the stock
+        # complicated, but works. The ideal mechanism probably would be Panda, but this isn't included in the stock
         # Qgis install, which is our current LCD.
         for iter in uniqueIterations:
             iterIdx = collarData['ITERATION_ID'].tolist().index(iter)
@@ -379,6 +379,9 @@ def extractCollarPointsValues(config):
                     else:
                         print "The 1st sample point of Iteration {0} cannot be back-filled with a valid value because no other " \
                               "valid points exist.".format(iter)
+
+        #  DEVNOTE: We don't need to do bounds check for Dev, as it doesnt have complete coverage like VEG & Climate
+
 
         for iter in uniqueIterations:
             iterList = collarData['ITERATION_ID'].tolist()
@@ -407,7 +410,6 @@ def extractCollarPointsValues(config):
     stratumMaps = config.Strata
 
     print("\tCalculating Strata...")
-    # Calculate Strata Value = (VegVal * 1) + (Climate * 4) + (DevVal * 8)
     for i in range(0, len(collarData)):
         point = collarData[i]
 
@@ -419,7 +421,7 @@ def extractCollarPointsValues(config):
             for smap in stratumMaps:
                 if point['VEG_VAL'] == smap['VegID'] \
                         and point['CLIMATE_VAL'] ==  str(smap['ClimateID']) \
-                        and point['DEV_VAL'] == (False if smap['DevID']==0 else True):
+                        and point['DEV_VAL'] == smap['DevID']:
                     point['STRATUM_ID'] = smap['StratumId']
                     point['STRATUM_DESC'] = smap['Name']
                     break

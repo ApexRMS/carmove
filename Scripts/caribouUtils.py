@@ -8,22 +8,25 @@ import datetime
 import gdal
 import numpy
 from osgeo import ogr
+import osgeo.osr as osr
 
 import caribouConstants as cc
 import projUtil as pu
 
 
-def createBuffer(inputfn, outputBufferfn, minBufferDist, maxBufferDist=None):
+def createBuffer(inputfn, outputBufferfn, minBufferDist, maxBufferDist=None, field_names = [cc.DEV_LAYER_ATTRIBUTE_NAME,]):
     """
         Create a new Layer by buffering the specified Input layer. If only a minBufferDist
         is specified, then all features are specified by this value, If both a Min and Max value are specified, then
         a random buffer distance in that range is applied to each feature.
+        Note: Only those attributes that are listed in field_names are retained - all others are discarded.
 
     @param inputfn: The file name of the shapefile to be buffered
     @param outputBufferfn: The filename of the output file.
     @param minBufferDist: Minimum Buffer distance.
     @param maxBufferDist: Maximum Buffer distance. If specified, then a random buffer distance between minBufferDist and
     maxBufferDist will be calculated for each feature. If not specified, a fixed value of minBufferDist is used for all features.
+    @param field_names: A list of the input fields that we want to copy over the buffered output shapefile
     @return:
     """
 
@@ -45,6 +48,21 @@ def createBuffer(inputfn, outputBufferfn, minBufferDist, maxBufferDist=None):
 
     featureDefn = bufferlyr.GetLayerDefn()
 
+    # Create field definition(s)
+    # Add input Layer Fields to the output Layer if defined in field_names arg.
+    inLayerDefn = inputlyr.GetLayerDefn()
+    copied_fields = []
+    for i in range(0, inLayerDefn.GetFieldCount()):
+        fieldDefn = inLayerDefn.GetFieldDefn(i)
+        fieldName = fieldDefn.GetName()
+        if fieldName not in field_names:
+            continue
+        bufferlyr.CreateField(fieldDefn)
+        fieldDefn = None
+        copied_fields.append(fieldName)
+        print "\tCreated an Attribute '{0}' in buffer shapefile '{1}'".format(fieldName,outputBufferfn)
+
+
     for feature in inputlyr:
         ingeom = feature.GetGeometryRef()
 
@@ -55,7 +73,13 @@ def createBuffer(inputfn, outputBufferfn, minBufferDist, maxBufferDist=None):
 
         outFeature = ogr.Feature(featureDefn)
         outFeature.SetGeometry(geomBuffer)
+        for name in copied_fields:
+            outFeature.SetField(name, feature.GetField(name))
+
         bufferlyr.CreateFeature(outFeature)
+        outFeature = None
+
+    outputBufferds.Destroy()
 
     # Create a PRJ file for this shapefile
     pu.createPrjFile(outputBufferfn,inpSRS)
@@ -63,7 +87,7 @@ def createBuffer(inputfn, outputBufferfn, minBufferDist, maxBufferDist=None):
 
 def getVectorLayerAttrVal(lon, lat, lyr_in, fieldName):
     """
-    Get the atrribute value from a Vector layer at the specified location
+    Get the attribute value from a Vector layer at the specified location
 
     :param lon:  The longitude of location of interest
     :param lat:  The latitude of location of interest
@@ -101,18 +125,31 @@ def getVectorLayerAttrVal(lon, lat, lyr_in, fieldName):
 
     idx_reg = lyr_in.GetLayerDefn().GetFieldIndex(fieldName)
     if idx_reg == -1:
-        sys.exit("Could not find specified attribute {0} in Shapefile".format(fieldName))
+        sys.exit("Could not find specified attribute '{0}' in Shapefile".format(fieldName))
 
     # go over all the polygons in the layer see if one include the point
-    for feat_in in lyr_in:
-        # roughly subsets features, instead of go over everything
-        # ply = feat_in.GetGeometryRef()
-        # if ply.Contains(pt):
+    if lyr_in.GetFeatureCount() == 0:
+        # Nothing found, so return NO_DATA_VALUE
+        return cc.NO_DATA_VALUE
+    elif lyr_in.GetFeatureCount() ==1:
+        for feat_in in lyr_in:
+            return feat_in.GetField(fieldName)
+    else:
+        # Loop thru all check in different values. If so, log warning, and return lowest valule. This could result
+        # from overlapping buffers.
+        found_values = []
+        for feat_in in lyr_in:
+            val = feat_in.GetField(fieldName)
+            if val not in found_values:
+                found_values.append(val)
 
-        return feat_in.GetFieldAsString(idx_reg)
+        if len(found_values) > 1:
+            print ("Found overlapping polygons with different values for field '{0}':{1}".format(fieldName,str(found_values)))
 
-    # Nothing found, so return -9999
-    return cc.NO_DATA_VALUE
+        # Return the lower value found
+        return min(found_values)
+
+
 
 
 def getVectorLayerContains(lon, lat, lyr_in):
@@ -134,7 +171,7 @@ def getVectorLayerContains(lon, lat, lyr_in):
 
     """
 
-    #DEVNOTE: I cant seem to get this to work properly unless I explicitly specify a SRS of EPSG:3857. Using
+    #DEVNOTE: I cant seem to get this to working properly unless I explicitly specify a SRS of EPSG:3857. Using
     # lyr_in.GetSpatialRef() doesnt seem to cut it.
     geo_ref = ogr.osr.SpatialReference()
     geo_ref.ImportFromEPSG(cc.DEFAULT_SRS)
@@ -196,16 +233,18 @@ def getRasterLayerValue(lon, lat, raster):
         return val
 
 
-def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename):
+def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename,field_names = [cc.DEV_LAYER_ATTRIBUTE_NAME,]):
     """
     Merge the two input Polygon shapefiles.
 
     :param input1Filename: The filename of the 1st source shapefile to merge
     :param input2Filename: The filename of the 2nd source shapefile to merge
     :param mergedFilename: The filename of the resultant merged shapefiles
+    :param field_names: A list of Layer fields in the source file(s) that we want to retain in the output. All other fields will be discarded.
     :return:
 
-    Notes: The geometry type and SRS of the input files must be equal.  As well, any attributes are discarded.
+    Notes: The geometry type and SRS of the input files must be equal.  As well, any attributes not listed in field_names will be discarded.
+    Attributes must be defined in both input shapefiles.
 
     """
 
@@ -222,7 +261,7 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename):
     input2lyr = input2Ds.GetLayer()
     inp2SRS = input2lyr.GetSpatialRef()
 
-    # Check that files have match SRS, as we're not reprojecting. Use MorphToESRI to overcome weird issues where
+    # Check that files have matching SRS, as we're not reprojecting. Use MorphToESRI to overcome weird issues where
     # parameters are same but just in different positions
     inp1SRS.MorphToESRI()
     inp2SRS.MorphToESRI()
@@ -244,12 +283,58 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename):
     outputBufferds = shpdriver.CreateDataSource(mergedFilename)
     outputlyr = outputBufferds.CreateLayer(mergedFilename, geom_type=ogr.wkbPolygon, srs=inp1SRS)
 
-    for feature in input1lyr:
-        outputlyr.CreateFeature(feature)
+    # Add input Layer Fields to the output Layer if its listed in the field_names list
+    inLayerDefn = input1lyr.GetLayerDefn()
+    for i in range(0, inLayerDefn.GetFieldCount()):
+        fieldDefn = inLayerDefn.GetFieldDefn(i)
+        fieldName = fieldDefn.GetName()
+        if fieldName not in field_names:
+            continue
+        outputlyr.CreateField(fieldDefn)
+        fieldDefn = None
+        print "\tCreated an Attribute '{0}' in merged shapefile '{1}'".format(fieldName,mergedFilename)
 
-    for feature in input2lyr:
-        outputlyr.CreateFeature(feature)
+    # Get the output Layer's Feature Definition
+    outLayerDefn = outputlyr.GetLayerDefn()
+    inputLayerDefn = input1lyr.GetLayerDefn()
 
+    # Add features to the ouput Layer
+    for i in range(0, input1lyr.GetFeatureCount()):
+        # Get the input Feature
+        inFeature = input1lyr.GetFeature(i)
+        outFeature = ogr.Feature(outLayerDefn)
+
+        # Add specified field values from input Layer
+        for i in range(0, inputLayerDefn.GetFieldCount()):
+            fieldDefn = inputLayerDefn.GetFieldDefn(i)
+            fieldName = fieldDefn.GetName()
+            if fieldName not in field_names:
+                continue
+
+            outFeature.SetField(fieldName, inFeature.GetField(fieldName))
+
+        outputlyr.CreateFeature(outFeature)
+
+    inputLayerDefn = input2lyr.GetLayerDefn()
+
+    for i in range(0, input2lyr.GetFeatureCount()):
+        # Get the input Feature
+        inFeature = input1lyr.GetFeature(i)
+
+        outFeature = ogr.Feature(outLayerDefn)
+
+        # Add specified field values from input Layer
+        for i in range(0, inputLayerDefn.GetFieldCount()):
+            fieldDefn = inputLayerDefn.GetFieldDefn(i)
+            fieldName = fieldDefn.GetName()
+            if fieldName not in field_names:
+                continue
+
+            outFeature.SetField(fieldName, inFeature.GetField(fieldName))
+
+        outputlyr.CreateFeature(outFeature)
+
+    outputBufferds.Destroy()
     # Create prj file
     pu.createPrjFile(mergedFilename,inp1SRS)
 
@@ -261,8 +346,6 @@ def makeLocationPtShapefile(config,locationData):
     :param locationData - The numpy array containing the location data, including Lat/Lng.        
     """
 
-    import osgeo.ogr as ogr
-    import osgeo.osr as osr
 
     # set up the shapefile driver
     driver = ogr.GetDriverByName("ESRI Shapefile")
@@ -340,6 +423,36 @@ def makeLocationPtShapefile(config,locationData):
             data_source.Destroy()
 
             print ("\n\tConverted Collar Points Values into Shapefile for Iteration/Year {0}/{1}. Output file:'{2}'".format(iteration, year, shapeFilename))
+
+
+def createDevIDAttr(shapefileName, defaultVal):
+    """
+        Create a DEV_ID Attribute field in the specified Vector file, and initialize with the specified Default value
+
+        :param shapefileName - The name of the shapefile to add the DEV_ID Attribute to
+        :param defaultVal - The default value to initialise all existing features to
+    """
+
+    inputds = ogr.Open(shapefileName,update=True)
+    if not inputds:
+        sys.exit("Unable to open input file '{0}'".format(shapefileName))
+
+    inputlyr = inputds.GetLayer()
+
+    # Create field definition(s)
+    # Add input Layer Fields to the output Layer if defined in field_names arg.
+    inLayerDefn = inputlyr.GetLayerDefn()
+    if inLayerDefn.GetFieldIndex(cc.DEV_LAYER_ATTRIBUTE_NAME) == -1:
+        print("\tCreating an Attribute '{0}' in vector file '{1}'".format(cc.DEV_LAYER_ATTRIBUTE_NAME,shapefileName))
+
+        inputlyr.CreateField(ogr.FieldDefn(cc.DEV_LAYER_ATTRIBUTE_NAME, ogr.OFTInteger))
+
+        for feature in inputlyr:
+            feature.SetField(cc.DEV_LAYER_ATTRIBUTE_NAME,defaultVal)
+
+        # inputds = None
+        inputds.Destroy()
+        print("\tCreated an Attribute '{0}' in vector file '{1}'".format(cc.DEV_LAYER_ATTRIBUTE_NAME,shapefileName))
 
 
 def reclassifyVeg(vegInpFilename,vegReclassifiedFilename,vegClassRemapFilename ):
@@ -481,7 +594,7 @@ def getRelationToZOI(collarData, pointIdx, lyr_in):
 
 
 
-def mergeVectorPolygons(srcShapeFilename, destShapeFilename= None):
+def compressVectorPolygons(srcShapeFilename, destShapeFilename= None):
     '''
     Merge the (multi)polygons in the specified file, performing a UnionCascaded operation. This effectively performs
     a spatial merge, combining overlapping polygons into a single polygon. This reduces the size of the shapefile, sometimes
@@ -610,6 +723,6 @@ if __name__ == '__main__':
     pass
     # DEVNOTE: Test code
     # renameShapefile('d:\\Temp\\buffer.shp', 'd:\\temp\\tom.shp')
-    # mergeVectorPolygons('d:/Temp/Sc41-It0001_zone_of_influence.shp','d:/Temp/Sc41-It0001_zone_of_influence_dissolved.shp')
-    # mergeVectorPolygons('D:/ApexRMS/Raster Simulator A131/Sample Landfire Data/Bathurst-Movement-Model_Syncrosim_1/Bathurst-Movement-Model.ssim.output/Scenario-52/Spatial/It0001_harvest_zone.shp')
+    # compressVectorPolygons('d:/Temp/Sc41-It0001_zone_of_influence.shp','d:/Temp/Sc41-It0001_zone_of_influence_dissolved.shp')
+    # compressVectorPolygons('D:/ApexRMS/Raster Simulator A131/Sample Landfire Data/Bathurst-Movement-Model_Syncrosim_1/Bathurst-Movement-Model.ssim.output/Scenario-52/Spatial/It0001_harvest_zone.shp')
     # renameShapefile('d:/Temp/Sc41-It0001_zone_of_influence.shp','d:/Temp/Sc41-It0001_zone_of_influence_dissolved.shp')

@@ -22,6 +22,8 @@ CLIMATE_LAYER_ATTRIBUTE_NAME = "Zone_id"
 # Range Assessment Area (RAA)  Shapefile
 RANGE_ASSESSMENT_AREA_LAYER_ATTRIBUTE_NAME = "RAA"
 
+# Development Shapefile
+DEV_LAYER_ATTRIBUTE_NAME = "DEV_ID"
 
 # Name of Working version of User specified files
 WORKING_CLIMATE_FILENAME = "climate.shp"

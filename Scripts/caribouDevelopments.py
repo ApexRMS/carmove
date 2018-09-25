@@ -14,7 +14,7 @@ import projUtil
 import caribouConstants as cc
 
 
-from caribouUtils import createBuffer, mergePolyShapefiles, mergeVectorPolygons
+from caribouUtils import createBuffer, mergePolyShapefiles, compressVectorPolygons, createDevIDAttr
 
 
 def createDevelopments(config):
@@ -83,6 +83,9 @@ def initDevFiles(config):
         workDevFilename = config.getWorkingFilePath(cc.WORKING_EXISTING_DEV_FILENAME)
         projUtil.reprojectShapefile(devFilename,workDevFilename,cc.DEFAULT_SRS)
 
+        # Make sure Dev related vector files has a DEV_ID field - create if not, and set to default
+        createDevIDAttr(workDevFilename,config.DefaultDevID)
+
     # Existing Harvest Zone
     hzFilename = config.HarvestZoneShapeFile
     workHzFilename = config.getWorkingFilePath(cc.WORKING_EXISTING_HARVEST_ZONE_FILENAME)
@@ -98,6 +101,8 @@ def initDevFiles(config):
         workRdPolyFilename = config.getWorkingFilePath(cc.WORKING_EXISTING_ROAD_POLY_FILENAME)
         createBuffer(workRdLineFilename,workRdPolyFilename,1)
 
+        # Make sure Dev related vector files has a DEV_ID field - create if not, and set to default
+        createDevIDAttr(workRdPolyFilename,config.DefaultDevID)
 
     # Range Assessment Area - optional unless Projected
     raaFilename = config.RangeAssessmentShapeFile
@@ -233,10 +238,16 @@ def createProjectedDevPoints(config,iterationId,verbose=False):
             featureDefn = pointLyr.GetLayerDefn()
             outFeature = ogr.Feature(featureDefn)
             outFeature.SetGeometry(point)
+
             pointLyr.CreateFeature(outFeature)
 
             i += 1
 
+        devDs = None
+        pointDs.Destroy()
+
+        # Add a DEV_ID attribute field to the newly created shapefile
+        createDevIDAttr(newDevPtsFilename,config.DefaultDevID)
         print "Created New Projected Development Points Layer {0}".format(newDevPtsFilename)
 
 
@@ -277,14 +288,7 @@ def createProjectedRoads(config,iterationId):
     if roadLineLyr is None:
         sys.exit("Unable to open Road Line layer {0}".format(roadLineFilename))
 
-    # newPtSrs = newPtLyr.GetSpatialRef()
     roadLineSrs = roadLineLyr.GetSpatialRef()
-    # if newPtSrs.ExportToWkt() != roadLineSrs.ExportToWkt():
-    #     print newPtSrs.ExportToWkt()
-    #     print roadLineSrs.ExportToWkt()
-    #     sys.exit("The SRS of the New Points Layer {0} and the Road Line Layer {1} do not match. Unable "
-    #              "to process".format(devPointsFilename, roadLineFilename))
-
 
     newRoadsLineFilename = cc.NEW_ROADS_LINE_FILENAME.format(iterationId)
     newRoadsLineFilename = config.getWorkingFilePath(newRoadsLineFilename)
@@ -359,6 +363,9 @@ def createProjectedRoads(config,iterationId):
     # Close the datasource to save before using below in createBuffer
     newRoadsDs.Destroy()
     print("Created New Roads Line Layer {0}".format(newRoadsLineFilename))
+
+    # Add a DEV_ID attribute field to the newly created shapefile
+    createDevIDAttr(newRoadsLineFilename, config.DefaultDevID)
 
     newRoadsPolyFilename = config.getWorkingFilePath(cc.NEW_ROADS_POLY_FILENAME.format(iterationId))
     createBuffer(newRoadsLineFilename,newRoadsPolyFilename,1 )
@@ -450,7 +457,9 @@ def createMergedHarvestZone(config,iterId):
     if config.OODevAndRoads:
         # copy & deflate
         destinationFilename = os.path.join(config.OutputDirectory,os.path.basename(mergedRoadsDevFilename))
-        mergeVectorPolygons(mergedRoadsDevFilename,destinationFilename)
+        # Note that this operation merges spatially but throws away the attributes
+        compressVectorPolygons(mergedRoadsDevFilename, destinationFilename)
+        print "\tCreated flattened Dev & Roads Layer '{0}'".format(destinationFilename)
 
     # Buffer the merged Development layer by HARVEST_ZONE_INFRASTRUCTURE_BUFFER_SIZE_M.
     # New file is newHZFilename
@@ -464,7 +473,9 @@ def createMergedHarvestZone(config,iterId):
     if config.OOHarvestZone:
         # copy & deflate
         destinationFilename = os.path.join(config.OutputDirectory,os.path.basename(mergedHZFilename))
-        mergeVectorPolygons(mergedHZFilename,destinationFilename)
+        # Note that this operation merges spatially but throws away the attributes
+        compressVectorPolygons(mergedHZFilename, destinationFilename)
+        print "\tCreated flattened Harvest Development Layer '{0}'".format(destinationFilename)
 
 def createZOIDevelopment(config,iterId):
     """
@@ -530,9 +541,11 @@ def createZOIDevelopment(config,iterId):
 
     # Copy to output directory for mapping, if required
     if config.OOZOI:
-        # copy & deflate
+        # copy & deflate - ONLY for Output
+        # Note that this operation merges spatially but throws away the attributes
         destinationFilename = os.path.join(config.OutputDirectory,os.path.basename(zoiFilename))
-        mergeVectorPolygons(zoiFilename,destinationFilename)
+        compressVectorPolygons(zoiFilename, destinationFilename)
+        print "\tCreated flattened ZOI Development Layer '{0}'".format(destinationFilename)
 
         
 
