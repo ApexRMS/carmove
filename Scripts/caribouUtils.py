@@ -319,7 +319,7 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename,field_nam
 
     for i in range(0, input2lyr.GetFeatureCount()):
         # Get the input Feature
-        inFeature = input1lyr.GetFeature(i)
+        inFeature = input2lyr.GetFeature(i)
 
         outFeature = ogr.Feature(outLayerDefn)
 
@@ -447,10 +447,10 @@ def createDevIDAttr(shapefileName, defaultVal):
 
         inputlyr.CreateField(ogr.FieldDefn(cc.DEV_LAYER_ATTRIBUTE_NAME, ogr.OFTInteger))
 
-        for feature in inputlyr:
-            feature.SetField(cc.DEV_LAYER_ATTRIBUTE_NAME,defaultVal)
+        for inFeature in inputlyr:
+            inFeature.SetField(cc.DEV_LAYER_ATTRIBUTE_NAME,defaultVal)
+            inputlyr.SetFeature(inFeature)
 
-        # inputds = None
         inputds.Destroy()
         print("\tCreated an Attribute '{0}' in vector file '{1}'".format(cc.DEV_LAYER_ATTRIBUTE_NAME,shapefileName))
 

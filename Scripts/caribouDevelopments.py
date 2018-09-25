@@ -90,6 +90,8 @@ def initDevFiles(config):
     hzFilename = config.HarvestZoneShapeFile
     workHzFilename = config.getWorkingFilePath(cc.WORKING_EXISTING_HARVEST_ZONE_FILENAME)
     projUtil.reprojectShapefile(hzFilename,workHzFilename,cc.DEFAULT_SRS)
+    # Make sure Dev related vector files has a DEV_ID field - create if not, and set to default
+    createDevIDAttr(workHzFilename, config.DefaultDevID)
 
     # Existing Road - optional unless Projected
     roadLineFilename = config.ExistingRoadsShapeFile

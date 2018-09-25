@@ -119,7 +119,7 @@ class Config:
                 sys.exit("Fatal Error: The Existing Road Shapefile must be defined if 'NumNewDev' is <>0.")
 
         # What's the default Development Attribute value ( used when Attribute DEV_ID not defined in Dev or Roads shapefile
-        self.DefaultDevID = 0
+        self.DefaultDevID = 99999
         for stratum in self.Strata:
             val = int(stratum['DevID'])
             if val > 0 & val < self.DefaultDevID:
