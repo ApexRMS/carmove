@@ -215,6 +215,19 @@
     <None Include="Scripts\caribouMovement.bat" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Scripts\caribouConstants.py" />
+    <Content Include="Scripts\caribouDevelopments.py" />
+    <Content Include="Scripts\caribouMovement.py" />
+    <Content Include="Scripts\caribouPreprocess.py" />
+    <Content Include="Scripts\caribouUtils.py" />
+    <Content Include="Scripts\config.py" />
+    <Content Include="Scripts\projUtil.py" />
+    <Content Include="Scripts\syncrosimDb.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{94E38DFF-614B-4CBD-B67C-F211BB35CE8B}" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\CoreForms\SyncroSim.Core.Forms.csproj">
       <Project>{ea3a4b6e-d4db-466d-b510-6a38918f2dd8}</Project>
       <Name>SyncroSim.Core.Forms</Name>
@@ -231,19 +244,6 @@
       <Project>{ac26a679-5fb6-4cae-9b08-e0ea8027c628}</Project>
       <Name>SyncroSim.StochasticTime</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Scripts\caribouConstants.py" />
-    <Content Include="Scripts\caribouDevelopments.py" />
-    <Content Include="Scripts\caribouMovement.py" />
-    <Content Include="Scripts\caribouPreprocess.py" />
-    <Content Include="Scripts\caribouUtils.py" />
-    <Content Include="Scripts\config.py" />
-    <Content Include="Scripts\projUtil.py" />
-    <Content Include="Scripts\syncrosimDb.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <Service Include="{94E38DFF-614B-4CBD-B67C-F211BB35CE8B}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
