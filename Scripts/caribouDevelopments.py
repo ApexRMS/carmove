@@ -21,11 +21,10 @@ def createDevelopments(config):
 
     initDevFiles(config)
 
-    for iterId in range(1, config.TotalIterations + 1):
+    for iterId in range(config.MinimumIteration, config.MaximumIteration + 1):
 
         if config.NumNewDev <> 0:
-            print("\rCreating New Development Layers. Processing Iteration {0} of {1}".format(iterId,
-                                                                                             config.TotalIterations))
+            print("\rCreating New Development Layers. Processing Iteration {0}".format(iterId))
             createProjectedDevPoints(config,iterId)
 
             createProjectedRoads(config,iterId)

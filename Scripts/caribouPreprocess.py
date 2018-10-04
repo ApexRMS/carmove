@@ -258,7 +258,7 @@ def extractCollarPointsValues(config):
         # See if we're into a new iteration. If so, we need to load new Development and Habitat Zone Shapefiles
         if lastIteration != point['ITERATION_ID']:
 
-            if config.NumNewDev == 0 and point['ITERATION_ID'] > 1:
+            if config.NumNewDev == 0 and point['ITERATION_ID'] > config.MinimumIteration: #DEVTODO: Tom please review
                 # If we have Num Devs = 0, then we didnt bother generated HZ and Dev layers for other than Iteration 0,
                 # so use those layers for all.
                 pass
@@ -498,7 +498,6 @@ def sampleCollarData(config, verbose=False):
     print "\rSampling Collar Points ..."
 
     # Set up some local variables from the config object
-    num_iterations = config.TotalIterations
     num_years = config.EndYear
     start_julian_day = config.StartJulianDay
     calving_peak_julian_day = config.CalvingPeakJulianDay
@@ -549,7 +548,7 @@ def sampleCollarData(config, verbose=False):
 
 
     # Loop thru the number of iterations specified
-    for iteration in range(1, num_iterations + 1):
+    for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
 
         calendarYearIdx = 1
         # Loop thru the number of years specified

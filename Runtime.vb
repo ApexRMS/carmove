@@ -5,21 +5,22 @@
 ' Copyright © 2007-2018 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.
 '*********************************************************************************************
 
-Imports SyncroSim.Core
 Imports System.IO
+Imports SyncroSim.Core
 Imports System.Globalization
+Imports SyncroSim.StochasticTime
 
 Class Runtime
-    Inherits Transformer
+    Inherits StochasticTimeTransformer
 
-    Public Overrides Sub Transform()
+    Public Overrides Sub Configure()
 
+        MyBase.Configure()
         Me.NormalizeRunControl()
-        Me.RunCaribouMovementModel()
 
     End Sub
 
-    Private Sub RunCaribouMovementModel()
+    Public Overrides Sub Transform()
 
         Dim libName As String = Me.Library.Connection.ConnectionString
         Dim app As String = Path.Combine(Me.ModuleLocation, "scripts\caribouMovement.bat")

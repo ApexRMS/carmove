@@ -350,10 +350,9 @@ def makeLocationPtShapefile(config,locationData):
     # set up the shapefile driver
     driver = ogr.GetDriverByName("ESRI Shapefile")
 
-    num_iterations = config.TotalIterations
     num_years = config.EndYear
     
-    for iteration in range(1, num_iterations + 1):
+    for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
         for year in range(1, num_years + 1):
 
             shapeFilename = config.getOutputFilePath(cc.COLLAR_VALUES_SHAPEFILE_FILENAME.format(iteration,year))

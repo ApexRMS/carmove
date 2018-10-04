@@ -51,7 +51,8 @@ class Config:
         self.StartJulianDay = dsRunControl['StartJulianDay']
         self.EndYear = dsRunControl['EndYear']
         self.CalvingPeakJulianDay = dsRunControl['CalvingPeakJulianDay']
-        self.TotalIterations = dsRunControl['TotalIterations']
+        self.MinimumIteration = dsRunControl['MinimumIteration']
+        self.MaximumIteration = dsRunControl['MaximumIteration']
 
         # CM_SpatialFiles
         # Get the Scenario Input directory. All Spatial files are relative to it.
@@ -87,7 +88,7 @@ class Config:
         # Do some QA
         # Runtime
         if self.StartJulianDay is None or self.EndYear is None or self.CalvingPeakJulianDay is None or \
-                        self.TotalIterations is None:
+                        self.MinimumIteration is None:
             sys.exit("Fatal Error: Run Control missing required field")
 
         # Development
