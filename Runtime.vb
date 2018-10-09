@@ -27,7 +27,7 @@ Class Runtime
         Dim args As String = String.Format(CultureInfo.InvariantCulture, """{0}"" {1}", libName, Me.ResultScenario.Id)
 
         Try
-            Me.ExecuteProcess(app, args, Nothing)
+            Me.ExecuteProcess(app, args, False, Nothing)
         Catch ex As Exception
 
             Dim sMsg As String = String.Format(CultureInfo.CurrentCulture, "Error executing external script file '{0}'.", app)
