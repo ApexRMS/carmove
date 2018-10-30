@@ -721,6 +721,28 @@ def renameShapefile(srcFilename, destFilename):
             os.rename(srcName +  ext, destName +ext )
 
 
+def copyShapefile(srcFilename, destFilename):
+    '''
+    Copy the specified shapefile
+    :param srcFilename:  The name of the shapefile we would like to copy
+    :param destFilename:  The destination name of the shapefile
+
+    Note: The rename does an OS copy of the files with shp,dbf,shx,prj extensions
+    '''
+
+    srcName =  os.path.splitext(srcFilename)[0]
+    destName =  os.path.splitext(destFilename)[0]
+
+    for ext in ['.shp','.dbf','.shx','.prj']:
+        if os.path.exists(destName +ext):
+            os.remove(destName +ext)
+
+        if os.path.exists(srcName +  ext):
+            shutil.copy(srcName +  ext, destName +ext )
+
+
+
+
 if __name__ == '__main__':
 
     pass

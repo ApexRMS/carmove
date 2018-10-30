@@ -14,7 +14,7 @@ import projUtil
 import caribouConstants as cc
 
 
-from caribouUtils import createBuffer, mergePolyShapefiles, compressVectorPolygons, createDevIDAttr
+from caribouUtils import createBuffer, mergePolyShapefiles, compressVectorPolygons, createDevIDAttr, copyShapefile
 
 
 def createDevelopments(config):
@@ -459,7 +459,9 @@ def createMergedHarvestZone(config,iterId):
         # copy & deflate
         destinationFilename = os.path.join(config.OutputDirectory,os.path.basename(mergedRoadsDevFilename))
         # Note that this operation merges spatially but throws away the attributes
-        compressVectorPolygons(mergedRoadsDevFilename, destinationFilename)
+        # DEVNOTE: Temporarily disabled compression as was taking way too long (JIRA A204-4)
+        # compressVectorPolygons(mergedRoadsDevFilename, destinationFilename)
+        copyShapefile(mergedRoadsDevFilename, destinationFilename)
         print "\tCreated flattened Dev & Roads Layer '{0}'".format(destinationFilename)
 
     # Buffer the merged Development layer by HARVEST_ZONE_INFRASTRUCTURE_BUFFER_SIZE_M.
@@ -475,7 +477,9 @@ def createMergedHarvestZone(config,iterId):
         # copy & deflate
         destinationFilename = os.path.join(config.OutputDirectory,os.path.basename(mergedHZFilename))
         # Note that this operation merges spatially but throws away the attributes
-        compressVectorPolygons(mergedHZFilename, destinationFilename)
+        # DEVNOTE: Temporarily disabled compression as was taking way too long (JIRA A204-4)
+        # compressVectorPolygons(mergedHZFilename, destinationFilename)
+        copyShapefile(mergedHZFilename, destinationFilename)
         print "\tCreated flattened Harvest Development Layer '{0}'".format(destinationFilename)
 
 def createZOIDevelopment(config,iterId):
@@ -545,7 +549,9 @@ def createZOIDevelopment(config,iterId):
         # copy & deflate - ONLY for Output
         # Note that this operation merges spatially but throws away the attributes
         destinationFilename = os.path.join(config.OutputDirectory,os.path.basename(zoiFilename))
-        compressVectorPolygons(zoiFilename, destinationFilename)
+        # DEVNOTE: Temporarily disabled compression as was taking way too long (JIRA A204-4)
+        # compressVectorPolygons(zoiFilename, destinationFilename)
+        copyShapefile(zoiFilename, destinationFilename)
         print "\tCreated flattened ZOI Development Layer '{0}'".format(destinationFilename)
 
         
