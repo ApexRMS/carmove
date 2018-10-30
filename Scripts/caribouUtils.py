@@ -303,6 +303,7 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename,field_nam
         # Get the input Feature
         inFeature = input1lyr.GetFeature(i)
         outFeature = ogr.Feature(outLayerDefn)
+        outFeature.SetGeometry(inFeature.GetGeometryRef())
 
         # Add specified field values from input Layer
         for i in range(0, inputLayerDefn.GetFieldCount()):
@@ -314,6 +315,7 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename,field_nam
             outFeature.SetField(fieldName, inFeature.GetField(fieldName))
 
         outputlyr.CreateFeature(outFeature)
+        outFeature = None
 
     inputLayerDefn = input2lyr.GetLayerDefn()
 
@@ -322,6 +324,7 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename,field_nam
         inFeature = input2lyr.GetFeature(i)
 
         outFeature = ogr.Feature(outLayerDefn)
+        outFeature.SetGeometry(inFeature.GetGeometryRef())
 
         # Add specified field values from input Layer
         for i in range(0, inputLayerDefn.GetFieldCount()):
@@ -333,6 +336,7 @@ def mergePolyShapefiles(input1Filename, input2Filename, mergedFilename,field_nam
             outFeature.SetField(fieldName, inFeature.GetField(fieldName))
 
         outputlyr.CreateFeature(outFeature)
+        outFeature = None
 
     outputBufferds.Destroy()
     # Create prj file
@@ -619,7 +623,7 @@ def compressVectorPolygons(srcShapeFilename, destShapeFilename= None):
     else:
         __mergeVectorPolygons(srcShapeFilename,destShapeFilename)
 
-    # print ("MergeVectorPolygons Start:{}".format(str(datetime.datetime.now())))
+    # print ("MergeVectorPolygons Stop:{}".format(str(datetime.datetime.now())))
 
 
 def __mergeVectorPolygons(srcShapeFilename, destShapeFilename):
