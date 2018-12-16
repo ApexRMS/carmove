@@ -60,6 +60,7 @@ class Config:
         self.OutputDirectory = str(os.path.join(db.getScenarioOutputPath(self.scenarioId),"Spatial"))
 
         self.CollarDataFile = self.getInputFilePath( dsSpatialFiles['CollarDataFile'])
+        self.SampleRandomCollarYear =  self.getInputFilePath( dsSpatialFiles['SampleRandomCollarYear'])
         self.ExistingDevShapefile = self.getInputFilePath( dsSpatialFiles['ExistingStratumLabelZShapeFile'] )
         self.ExistingRoadsShapeFile = self.getInputFilePath( dsSpatialFiles['ExistingRoadsShapeFile'])
         self.VegRaster = self.getInputFilePath( dsSpatialFiles['StratumLabelXRasterFile'] )
@@ -90,6 +91,12 @@ class Config:
         if self.StartJulianDay is None or self.EndYear is None or self.CalvingPeakJulianDay is None or \
                         self.MinimumIteration is None:
             sys.exit("Fatal Error: Run Control missing required field")
+
+        if self.StartJulianDay not in range(1, 365):
+            sys.exit("Start Julian Day must be between 1 - 365")
+
+        if self.CalvingPeakJulianDay not in range(1, 365):
+            sys.exit("Calving Peak Julian Day must be between 1 - 365")
 
         # Development
         if self.NumNewDev >0:

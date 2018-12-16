@@ -19,6 +19,8 @@ Class SpatialFilesDataFeedView
 
         MyBase.LoadDataFeed(dataFeed)
 
+        SetCheckBoxBinding(CheckBoxSampleRandomCollar, "SampleRandomCollarYear")
+
         Me.TextBoxCollarFile.Text = Nothing
         Me.TextBoxExistingDevStatusShapeFile.Text = Nothing
         Me.TextBoxExistingRoadsShapeFile.Text = Nothing
@@ -237,5 +239,4 @@ Class SpatialFilesDataFeedView
     Private Sub ButtonClearRangeAssessmentAreaShapeFile_Click(sender As System.Object, e As System.EventArgs) Handles ButtonClearRangeAssessmentAreaShapeFile.Click
         Me.ClearShapeFile(Me.TextBoxRangeAssessmentAreaShapeFile, "RangeAssessmentAreaShapeFile")
     End Sub
-
 End Class

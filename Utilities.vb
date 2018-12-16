@@ -26,6 +26,15 @@ Module Utilities
         End If
     End Function
 
+    Public Function GetDataBool(value As Object) As Boolean
+        If (Object.ReferenceEquals(value, DBNull.Value)) Then
+            Return False
+        Else
+            Return Convert.ToBoolean(value, CultureInfo.InvariantCulture)
+        End If
+    End Function
+
+
     Public Sub GetTerminology(
         ByVal project As Project,
         ByRef outStratumLabelX As String,

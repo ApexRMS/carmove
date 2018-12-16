@@ -61,6 +61,64 @@ def interpolateCollarPoints(config):
         # Sort them by Date
         pttCollarData.sort(axis=0, order=['YEAR_', 'MONTH_', 'DAY_'])
         startYear = pttCollarData['YEAR_'][0]
+
+        # Lets see if the 1st point is sufficiently close to the Start of the Year that we can fudge a Jan 1st record
+        pointFirst = numpy.copy(pttCollarData[0])
+        pointLast = numpy.copy(pttCollarData[len(pttCollarData) - 1])
+
+        sampleDate = datetime.date(pointFirst['YEAR_'], pointFirst['MONTH_'], pointFirst['DAY_'])
+
+        # Check for Date close to specified Start of Year Julian Day
+        if sampleDate.timetuple().tm_yday != config.StartJulianDay:
+
+            startofYearDate = datetime.datetime.strptime(str(pointFirst['YEAR_']) + str(config.StartJulianDay), '%Y%j').date()
+
+            daysDiff = (sampleDate - startofYearDate).days
+            if daysDiff % 365 < 10 :
+                # Prepend another point at the very start
+                pttCollarData = numpy.append(pointFirst, pttCollarData)
+                pttCollarData[0]['DAY_'] = startofYearDate.timetuple().tm_mday
+                pttCollarData[0]['MONTH_'] =startofYearDate.timetuple().tm_mon
+                pttCollarData[0]['YEAR_'] = startofYearDate.timetuple().tm_year
+                print "Create a new Start point for PTT {2}, because the 1st point @ '{1}' is within 10 days of Start Year {0} ".format(startofYearDate,sampleDate,ptt)
+                if daysDiff <10:
+                    # Same Year
+                    pass
+                else:
+                    # Snuck in on the % 365, so Previous Year
+                    pttCollarData[0]['YEAR_'] = startofYearDate.timetuple().tm_year - 1
+
+                pttCollarData.sort(axis=0, order=['YEAR_', 'MONTH_', 'DAY_'])
+
+        sampleDate = datetime.date(pointLast['YEAR_'], pointLast['MONTH_'], pointLast['DAY_'])
+        # Check for Date close to specified Start of Year Julian Day - 1
+        if config.StartJulianDay == 1:
+            endOfYearJD = 365
+        else:
+            endOfYearJD =  config.StartJulianDay -1
+
+        if sampleDate.timetuple().tm_yday != endOfYearJD:
+
+            endofYearDate = datetime.datetime.strptime(str(pointLast['YEAR_'] + 1) + str(endOfYearJD), '%Y%j').date()
+
+            daysDiff = ( endofYearDate - sampleDate).days
+            if daysDiff %365 < 10:
+                # Append another point
+                pttCollarData = numpy.append(pointLast,pttCollarData)
+                pttCollarData[0]['DAY_'] = endofYearDate.timetuple().tm_mday
+                pttCollarData[0]['MONTH_'] = endofYearDate.timetuple().tm_mon
+                pttCollarData[0]['YEAR_'] = endofYearDate.timetuple().tm_year
+                print "Create a new End point for PTT {2}, because the Last point @ '{1}' is within 10 days of End Year {0} ".format(endofYearDate,sampleDate,ptt)
+
+                if daysDiff < 10:
+                    pass;
+                else:
+                    # Snuck in on the % 365, so Next Year
+                    pttCollarData[0]['YEAR_'] = endofYearDate.timetuple().tm_year + 1
+
+                pttCollarData.sort(axis=0, order=['YEAR_', 'MONTH_', 'DAY_'])
+
+
         # Now lets step thru the records and pick out Date diffs, so we can interpolate daily locations between
         for i in range(0, len(pttCollarData) - 1):
             pointA = pttCollarData[i]
@@ -98,6 +156,8 @@ def interpolateCollarPoints(config):
              pointA['LAT'],
              pointA['LON'], False,
              pointA['ID']])
+
+
         # PTT_IDX needs to be an index starting from 1, without gaps.
         pttIdx += 1
 
@@ -497,24 +557,6 @@ def sampleCollarData(config, verbose=False):
 
     print "\rSampling Collar Points ..."
 
-    # Set up some local variables from the config object
-    num_years = config.EndYear
-    start_julian_day = config.StartJulianDay
-    calving_peak_julian_day = config.CalvingPeakJulianDay
-
-
-    # Get Shapefile driver
-    drv = ogr.GetDriverByName('ESRI Shapefile')
-
-    # Range check Julian Days
-    if start_julian_day not in range(1, 365):
-        sys.exit("Start Julian Day must be between 1 - 365")
-
-    if calving_peak_julian_day not in range(1, 365):
-        sys.exit("Calving Peak Julian Day must be between 1 - 365")
-
-    startDateLead = start_julian_day < calving_peak_julian_day
-
     # Import the Collar Daily Points CSV
     inpFilename = config.getWorkingFilePath(cc.COLLAR_DAILY_CSV_FILENAME)
     collarData = numpy.genfromtxt(inpFilename, delimiter=',', names=True, dtype=None)
@@ -537,7 +579,7 @@ def sampleCollarData(config, verbose=False):
     collarData.sort(axis=0, order=['PTT_IDX', 'PTT_YEAR_IDX', 'JULIAN_DAY'])
 
     # Get a list of unique PTT (Caribou)
-    uniquePTTIdx = numpy.unique(collarData['PTT_IDX'])
+    # uniquePTTIdx = numpy.unique(collarData['PTT_IDX'])
 
     # Write out CSV location file
     outputfilename = config.getWorkingFilePath(cc.SAMPLED_COLLAR_DATA_CSV_FILENAME)
@@ -546,6 +588,27 @@ def sampleCollarData(config, verbose=False):
     csvWriter.writerow(
         ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY', 'LAT', 'LON', 'PTT_IDX', 'YEAR_IDX'])
 
+    if config.SampleRandomCollarYear:
+        sampleRandomCollarData(collarData, config, csvWriter, verbose)
+    else:
+        sampleCompleteCollarData(collarData, config, csvWriter, True)
+
+    csvFile.close()
+
+    print ("\tCompleted sampleCollarData(). Created Output file:'%s'" % outputfilename)
+
+
+def sampleRandomCollarData(collarData, config, csvWriter, verbose):
+
+    # Set up some local variables from the config object
+    num_years = config.EndYear
+    start_julian_day = config.StartJulianDay
+    calving_peak_julian_day = config.CalvingPeakJulianDay
+
+    startDateLead = start_julian_day < calving_peak_julian_day
+
+    # Get a list of unique PTT (Caribou)
+    uniquePTTIdx = numpy.unique(collarData['PTT_IDX'])
 
     # Loop thru the number of iterations specified
     for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
@@ -589,13 +652,13 @@ def sampleCollarData(config, verbose=False):
                         else:
                             if verbose:
                                 print(
-                                "PTT {0} doesnt have enough samples in year {1}, so 'resampling' PTT and Year.".format(
-                                    pttIdx, sampleYearIdx))
+                                    "PTT {0} doesnt have enough samples in year {1}, so 'resampling' PTT and Year.".format(
+                                        pttIdx, sampleYearIdx))
                     else:
                         if verbose:
                             print(
-                            "PTT {0}/year {1} isn't a full year (1st sample date > Calving Peak Date), so can't be used. "
-                            "'Resampling' PTT and Year.".format(pttIdx, sampleYearIdx))
+                                "PTT {0}/year {1} isn't a full year (1st sample date > Calving Peak Date), so can't be used. "
+                                "'Resampling' PTT and Year.".format(pttIdx, sampleYearIdx))
 
                     if verbose:
                         print("Resample:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},"
@@ -608,10 +671,10 @@ def sampleCollarData(config, verbose=False):
 
                 if verbose:
                     print(
-                    "Success:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},sampleStartJDay={2},samplesNeeded = {"
-                    "3}, samplesFound={4}".format(start_julian_day, calving_peak_julian_day, sampleStartJDay,
-                                                  samplesNeeded,
-                                                  len(sampleYearData), pttIdx, sampleYearIdx))
+                        "Success:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},sampleStartJDay={2},samplesNeeded = {"
+                        "3}, samplesFound={4}".format(start_julian_day, calving_peak_julian_day, sampleStartJDay,
+                                                      samplesNeeded,
+                                                      len(sampleYearData), pttIdx, sampleYearIdx))
 
                 # The 1st set of points will be from Start Date to calving_peak_julian_day
                 # This works whether Start Date < or > Season Start Date
@@ -684,27 +747,27 @@ def sampleCollarData(config, verbose=False):
                     else:
                         if verbose:
                             print(
-                            "PTT {0} doesnt have enough samples in year {1}, so 'resampling' PTT and Year.".format(
-                                pttIdx, sampleYearIdx))
+                                "PTT {0} doesnt have enough samples in year {1}, so 'resampling' PTT and Year.".format(
+                                    pttIdx, sampleYearIdx))
                 else:
                     if verbose:
                         print(
-                        "PTT {0}/year {1} isn't a full year (1st sample date > Calving Peak Date), so can't be used. "
-                        "'Resampling' PTT and Year.".format(pttIdx, sampleYearIdx))
+                            "PTT {0}/year {1} isn't a full year (1st sample date > Calving Peak Date), so can't be used. "
+                            "'Resampling' PTT and Year.".format(pttIdx, sampleYearIdx))
 
                 if verbose:
                     print(
-                    "Resample:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},sampleStartJDay={2},samplesNeeded = {"
-                    "3}, samplesFound={4}".format(start_julian_day, calving_peak_julian_day, sampleStartJDay,
-                                                  samplesNeeded,
-                                                  len(sampleYearData), pttIdx, sampleYearIdx))
+                        "Resample:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},sampleStartJDay={2},samplesNeeded = {"
+                        "3}, samplesFound={4}".format(start_julian_day, calving_peak_julian_day, sampleStartJDay,
+                                                      samplesNeeded,
+                                                      len(sampleYearData), pttIdx, sampleYearIdx))
 
             if verbose:
                 print(
-                "Success:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},sampleStartJDay={2},samplesNeeded = {"
-                "3}, samplesFound={4}".format(start_julian_day, calving_peak_julian_day, sampleStartJDay,
-                                              samplesNeeded,
-                                              len(sampleYearData), pttIdx, sampleYearIdx))
+                    "Success:PTT_Idx={5},Year_Idx={6}, start_julian_day={0},calving_peak_julian_day={1},sampleStartJDay={2},samplesNeeded = {"
+                    "3}, samplesFound={4}".format(start_julian_day, calving_peak_julian_day, sampleStartJDay,
+                                                  samplesNeeded,
+                                                  len(sampleYearData), pttIdx, sampleYearIdx))
 
             # Find the Calving Peak Date in the sampleYearData
             for startIdx in range(0, len(sampleYearData) - 1):
@@ -736,7 +799,6 @@ def sampleCollarData(config, verbose=False):
                 # Write out all sample days from Calving Peak to Start Day
                 # ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY','LAT', 'LON','PTT_IDX','YEAR_IDX'])
                 if sample['JULIAN_DAY'] != 366:
-
                     csvWriter.writerow([
                         iteration,
                         calendarYearIdx,
@@ -745,9 +807,112 @@ def sampleCollarData(config, verbose=False):
                         sample['PTT_IDX'], sample['PTT_YEAR_IDX']
                     ])
 
-    csvFile.close()
 
-    print ("\tCompleted sampleCollarData(). Created Output file:'%s'" % outputfilename)
+def sampleCompleteCollarData(collarData, config, csvWriter, verbose):
+
+    # Set up some local variables from the config object
+    num_years = config.EndYear
+    start_julian_day = config.StartJulianDay
+    calving_peak_julian_day = config.CalvingPeakJulianDay
+
+    # Get a list of unique PTT (Caribou)
+    uniquePTTIdx = numpy.unique(collarData['PTT_IDX'])
+
+    # Loop thru the number of iterations specified
+    for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
+
+        # Loop thru the number of Caribou (PTT)
+        for pttIdx in range(1, len(uniquePTTIdx)):
+
+            mask = collarData['PTT_IDX'] == pttIdx
+            pttCollarData = collarData[mask,]
+            uniqueYears = numpy.unique(pttCollarData['PTT_YEAR_IDX'])
+
+
+            # Loop thru the number of years specified
+            sampleYearIdx = 0
+            calendarYearIdx = 1
+            yearsOutput = 0
+
+            while True:
+
+                # See if we've got as many years as we needed
+                if yearsOutput >= num_years:
+                    break
+
+                sampleYearIdx +=1
+                if sampleYearIdx > len(uniqueYears):
+                    if verbose:
+                        print(
+                            "\t\tPTT {0} didn't have enough complete Sample years to fully satisfy Num Years = {1}.".format(pttIdx,num_years))
+                    break
+
+
+                print ("\tPerforming iteration {0} PTT {1} Year {2}...".format(iteration, pttIdx, sampleYearIdx))
+
+                sampleYear = uniqueYears[sampleYearIdx-1]
+                years = [sampleYear, sampleYear+ 1]
+                mask = numpy.in1d(pttCollarData['PTT_YEAR_IDX'], years)
+                sampleYearData = pttCollarData[mask,]
+
+                # Also throw away the 366th day of any leap years. Do it now to make subsequent checks easier /leapyear tolerant
+                mask = numpy.in1d(sampleYearData['JULIAN_DAY'], 366)
+                mask = numpy.invert(mask)
+                sampleYearData = sampleYearData[mask,]
+
+                sampleYearData.sort(axis=0, order=['PTT_YEAR_IDX', 'JULIAN_DAY'])
+
+                # We need enough samples to go from Start Day to Start Day Next Year
+                sampleStartJDay = sampleYearData[0]['JULIAN_DAY']
+                numSamples = len(sampleYearData)
+                # Do we have at leave a years worth of samples and the 1st sample date is less or equal to the specified Start Day ?
+                if numSamples >=365 and sampleStartJDay <= start_julian_day:
+                    # We're good
+                    pass
+                else:
+                    # Go try next year
+                    if sampleYearIdx == 1:
+                        # Only give year 1 as break, subsequent years should be complete
+                        if verbose:
+                            print(
+                                "\t\tPTT {0} doesnt have enough samples in year {1}, so we'll take a stab at next year.".format(
+                                    pttIdx, sampleYearIdx))
+                        continue
+                    else:
+                        if verbose:
+                            print("\t\tPTT {0} ran out of samples in year {1}.".format(pttIdx, sampleYearIdx))
+                        break
+
+                # Find the Start Date in the sampleYearData
+                for startIdx in range(0, numSamples):
+                    sample = sampleYearData[startIdx]
+                    if sample['JULIAN_DAY'] >= start_julian_day:
+                        break
+
+                # Now that we're at Start Day, write out samples for a year
+                for sampleIdx in range(startIdx, len(sampleYearData) - 1):
+                    sample = sampleYearData[sampleIdx]
+
+                    # Wrapped around a year and come back to the Start Day ?
+                    if sample['JULIAN_DAY'] >= start_julian_day and sampleYearIdx != sample['PTT_YEAR_IDX']:
+                        break
+
+                    # If we're looping thru Jan 1, increment the year count
+                    if start_julian_day > 1 and sample['JULIAN_DAY'] == 1:
+                        calendarYearIdx += 1
+
+                    # Write out all sample days from Start Day to Season Start
+                    # ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY','LAT', 'LON','PTT_IDX','YEAR_IDX'])
+                    csvWriter.writerow([
+                        iteration,
+                        calendarYearIdx,
+                        sample['JULIAN_DAY'],
+                        sample['LAT'], sample['LON'],
+                        sample['PTT_IDX'], sample['PTT_YEAR_IDX']
+                    ])
+
+                yearsOutput+=1
+
 
 
 def preprocess(config):
