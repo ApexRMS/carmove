@@ -72,21 +72,19 @@ def interpolateCollarPoints(config):
         if sampleDate.timetuple().tm_yday != config.StartJulianDay:
 
             startofYearDate = datetime.datetime.strptime(str(pointFirst['YEAR_']) + str(config.StartJulianDay), '%Y%j').date()
+            if (sampleDate - startofYearDate).days < 0:
+                #  Shift the StartofYear by a year earlier
+                startofYearDate = datetime.datetime.strptime(str(pointFirst['YEAR_']-1) + str(config.StartJulianDay),
+                                                             '%Y%j').date()
 
             daysDiff = (sampleDate - startofYearDate).days
-            if daysDiff % 365 < 10 :
+            if daysDiff < 10 :
                 # Prepend another point at the very start
                 pttCollarData = numpy.append(pointFirst, pttCollarData)
                 pttCollarData[0]['DAY_'] = startofYearDate.timetuple().tm_mday
                 pttCollarData[0]['MONTH_'] =startofYearDate.timetuple().tm_mon
                 pttCollarData[0]['YEAR_'] = startofYearDate.timetuple().tm_year
-                print "Create a new Start point for PTT {2}, because the 1st point @ '{1}' is within 10 days of Start Year {0} ".format(startofYearDate,sampleDate,ptt)
-                if daysDiff <10:
-                    # Same Year
-                    pass
-                else:
-                    # Snuck in on the % 365, so Previous Year
-                    pttCollarData[0]['YEAR_'] = startofYearDate.timetuple().tm_year - 1
+                print "Create a new Start point for PTT {2}, because the 1st point @ {1} is within 10 days after Start Year {0} ".format(startofYearDate,sampleDate,pttIdx)
 
                 pttCollarData.sort(axis=0, order=['YEAR_', 'MONTH_', 'DAY_'])
 
@@ -99,22 +97,19 @@ def interpolateCollarPoints(config):
 
         if sampleDate.timetuple().tm_yday != endOfYearJD:
 
-            endofYearDate = datetime.datetime.strptime(str(pointLast['YEAR_'] + 1) + str(endOfYearJD), '%Y%j').date()
+            endofYearDate = datetime.datetime.strptime(str(pointLast['YEAR_']) + str(endOfYearJD), '%Y%j').date()
+            if ( endofYearDate - sampleDate).days < 0:
+                #  Shift the EndofYear by a year later
+                endofYearDate = datetime.datetime.strptime(str(pointLast['YEAR_'] + 1) + str(endOfYearJD),'%Y%j').date()
 
             daysDiff = ( endofYearDate - sampleDate).days
-            if daysDiff %365 < 10:
+            if daysDiff  < 10:
                 # Append another point
                 pttCollarData = numpy.append(pointLast,pttCollarData)
                 pttCollarData[0]['DAY_'] = endofYearDate.timetuple().tm_mday
                 pttCollarData[0]['MONTH_'] = endofYearDate.timetuple().tm_mon
                 pttCollarData[0]['YEAR_'] = endofYearDate.timetuple().tm_year
-                print "Create a new End point for PTT {2}, because the Last point @ '{1}' is within 10 days of End Year {0} ".format(endofYearDate,sampleDate,ptt)
-
-                if daysDiff < 10:
-                    pass;
-                else:
-                    # Snuck in on the % 365, so Next Year
-                    pttCollarData[0]['YEAR_'] = endofYearDate.timetuple().tm_year + 1
+                print "Create a new End point for PTT {2}, because the Last point @ {1} is within 10 days before End Year {0} ".format(endofYearDate,sampleDate,pttIdx)
 
                 pttCollarData.sort(axis=0, order=['YEAR_', 'MONTH_', 'DAY_'])
 
@@ -591,7 +586,7 @@ def sampleCollarData(config, verbose=False):
     if config.SampleRandomCollarYear:
         sampleRandomCollarData(collarData, config, csvWriter, verbose)
     else:
-        sampleCompleteCollarData(collarData, config, csvWriter, True)
+        sampleCompleteCollarData(collarData, config, csvWriter, verbose)
 
     csvFile.close()
 
