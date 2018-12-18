@@ -60,7 +60,7 @@ class Config:
         self.OutputDirectory = str(os.path.join(db.getScenarioOutputPath(self.scenarioId),"Spatial"))
 
         self.CollarDataFile = self.getInputFilePath( dsSpatialFiles['CollarDataFile'])
-        self.SampleRandomCollarYear =  self.getInputFilePath( dsSpatialFiles['SampleRandomCollarYear'])
+        self.SampleRandomCollarYear =  dsSpatialFiles['SampleRandomCollarYear']
         self.ExistingDevShapefile = self.getInputFilePath( dsSpatialFiles['ExistingStratumLabelZShapeFile'] )
         self.ExistingRoadsShapeFile = self.getInputFilePath( dsSpatialFiles['ExistingRoadsShapeFile'])
         self.VegRaster = self.getInputFilePath( dsSpatialFiles['StratumLabelXRasterFile'] )
