@@ -802,28 +802,124 @@ def sampleRandomCollarData(collarData, config, csvWriter, verbose):
                         sample['PTT_IDX'], sample['PTT_YEAR_IDX']
                     ])
 
-
 def sampleCompleteCollarData(collarData, config, csvWriter, verbose):
 
     # Set up some local variables from the config object
     num_years = config.EndYear
     start_julian_day = config.StartJulianDay
-    calving_peak_julian_day = config.CalvingPeakJulianDay
+
+    collarYearList = createCollarYearList(collarData,config,verbose)
+
+    # Loop thru the number of iterations specified
+    for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
+
+        if (iteration-1) * num_years > len(collarYearList):
+            print "We ran out of valid Collar Point data from the number of Iterations/Years specified. Only found {0} valid Collar/Years.".format(
+                len(collarYearList))
+            break;
+
+        calendarYearIdx = 1
+
+        for yearIdx in range(1,num_years+1):
+            listIdx = (iteration-1) * num_years + yearIdx -1
+
+            if listIdx >= len(collarYearList):
+                print "We ran out of valid Collar Point data from the number of Iterations/Years specified. Only found {0} valid Collar/Years.".format(
+                    len(collarYearList))
+
+                break;
+
+            collarYear = collarYearList[listIdx]
+            pttIdx = collarYear[0]
+            pttYearIdx = collarYear[1]
+
+            mask = collarData['PTT_IDX'] == pttIdx
+            pttCollarData = collarData[mask,]
+
+            years = [pttYearIdx, pttYearIdx+ 1]
+            mask = numpy.in1d(pttCollarData['PTT_YEAR_IDX'], years)
+            sampleYearData = pttCollarData[mask,]
+
+            # Also throw away the 366th day of any leap years. Do it now to make subsequent checks easier /leapyear tolerant
+            mask = numpy.in1d(sampleYearData['JULIAN_DAY'], 366)
+            mask = numpy.invert(mask)
+            sampleYearData = sampleYearData[mask,]
+
+            sampleYearData.sort(axis=0, order=['PTT_YEAR_IDX', 'JULIAN_DAY'])
+
+            # We need enough samples to go from Start Day to Start Day Next Year
+            # DEBUG QA : This check has already been some in createCollarYearList, but just checking here to be sure
+            sampleStartJDay = sampleYearData[0]['JULIAN_DAY']
+            numSamples = len(sampleYearData)
+            # Do we have at leave a years worth of samples and the 1st sample date is less or equal to the specified Start Day ?
+            if numSamples >=365 and sampleStartJDay <= config.StartJulianDay:
+                # We're good
+                pass
+            else:
+                print("ERROR: Not as many samples and/or insufficient range from what we expected for PTT/Year {0}/{1}".format(pttIdx,pttYearIdx))
+
+            # Find the Start Date in the sampleYearData
+            for startIdx in range(0, numSamples):
+                sample = sampleYearData[startIdx]
+                if sample['JULIAN_DAY'] >= start_julian_day:
+                    break
+
+            # Now that we're at Start Day, write out samples for a year
+            if verbose:
+                print("\t\tSampling from PTT {0} year {1} for Iteration {2} Year {3}.".format(pttIdx, pttYearIdx,
+                                                                                                  iteration, yearIdx))
+
+            for sampleIdx in range(startIdx, len(sampleYearData)):
+                sample = sampleYearData[sampleIdx]
+
+                # Wrapped around a year and come back to the Start Day ?
+                if sample['JULIAN_DAY'] >= start_julian_day and pttYearIdx != sample['PTT_YEAR_IDX']:
+                    break
+
+                # If we're looping thru Jan 1, increment the year count
+                if start_julian_day > 1 and sample['JULIAN_DAY'] == 1:
+                    calendarYearIdx += 1
+
+                # Write out all sample days from Start Day to Season Start
+                # ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY','LAT', 'LON','PTT_IDX','YEAR_IDX'])
+                csvWriter.writerow([
+                    iteration,
+                    calendarYearIdx,
+                    sample['JULIAN_DAY'],
+                    sample['LAT'], sample['LON'],
+                    sample['PTT_IDX'], sample['PTT_YEAR_IDX']
+                ])
+
+
+
+def createCollarYearList(collarData, config, verbose):
+    '''
+    Create a list of Collar/Years (PTTIdx/PTT_YEAR_IDX) that includes enough values for MaxIteration x Num_years. Each Collar/Year
+    is tested for be valid ( number of samples, straddling Start Year), before including in list.
+    :param collarData:
+    :param config:
+    :param verbose:
+    :return: collarYearList
+    '''
+
+    print "\tCreating Collar/Year List ..."
+
+    # Set up some local variables from the config object
+    num_years = config.EndYear
+    start_julian_day = config.StartJulianDay
+
+    collarYearList = []
 
     # Get a list of unique PTT (Caribou)
     uniquePTTIdx = numpy.unique(collarData['PTT_IDX'])
 
-    # Loop thru the number of iterations specified
-    # for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
-    iteration = config.MinimumIteration
-    yearsOutput = 0
-    calendarYearIdx = 1
+    numCollarYearsNeeded = config.MaximumIteration * num_years
 
     # Loop thru the number of Caribou (PTT)
     for pttIdx in range(1, len(uniquePTTIdx)):
 
-        # Have we done enough iterations
-        if iteration > config.MaximumIteration:
+        # See if we've got as many collar/years as we needed
+        if len(collarYearList) >= numCollarYearsNeeded:
             break
 
         mask = collarData['PTT_IDX'] == pttIdx
@@ -832,16 +928,6 @@ def sampleCompleteCollarData(collarData, config, csvWriter, verbose):
 
         for sampleYearIdx in range(1, len(uniqueYears)+1):
 
-            # See if we've got as many years as we needed
-            if yearsOutput >= num_years:
-                yearsOutput = 0
-                calendarYearIdx = 1
-                iteration +=1
-                if iteration > config.MaximumIteration:
-                    break
-
-
-            print ("\tPerforming sample for iteration {0} year {1} ...".format(iteration, yearsOutput+1))
 
             sampleYear = uniqueYears[sampleYearIdx-1]
             years = [sampleYear, sampleYear+ 1]
@@ -861,7 +947,7 @@ def sampleCompleteCollarData(collarData, config, csvWriter, verbose):
             # Do we have at leave a years worth of samples and the 1st sample date is less or equal to the specified Start Day ?
             if numSamples >=365 and sampleStartJDay <= start_julian_day:
                 # We're good
-                pass
+                collarYearList.append([pttIdx,sampleYearIdx])
             else:
                 # Go try next year
                 if sampleYearIdx == 1:
@@ -876,45 +962,10 @@ def sampleCompleteCollarData(collarData, config, csvWriter, verbose):
                         print("\t\tPTT {0} ran out of samples in year {1}.".format(pttIdx, sampleYearIdx))
                     break
 
-            # Find the Start Date in the sampleYearData
-            for startIdx in range(0, numSamples):
-                sample = sampleYearData[startIdx]
-                if sample['JULIAN_DAY'] >= start_julian_day:
-                    break
+    if verbose:
+        print("\t\tCreateCollarYearList found the required number of collar/years:{0}.".format(numCollarYearsNeeded))
 
-            # Now that we're at Start Day, write out samples for a year
-            if verbose:
-                print("\t\tSampling from PTT {0} year {1} for Iteration {2} Year {3}.".format(pttIdx, sampleYearIdx,
-                                                                                              iteration, yearsOutput+1))
-
-            for sampleIdx in range(startIdx, len(sampleYearData)):
-                sample = sampleYearData[sampleIdx]
-
-                # Wrapped around a year and come back to the Start Day ?
-                if sample['JULIAN_DAY'] >= start_julian_day and sampleYearIdx != sample['PTT_YEAR_IDX']:
-                    break
-
-                # If we're looping thru Jan 1, increment the year count
-                if start_julian_day > 1 and sample['JULIAN_DAY'] == 1:
-                    calendarYearIdx += 1
-
-                # Write out all sample days from Start Day to Season Start
-                # ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY','LAT', 'LON','PTT_IDX','YEAR_IDX'])
-                csvWriter.writerow([
-                    iteration,
-                    calendarYearIdx,
-                    sample['JULIAN_DAY'],
-                    sample['LAT'], sample['LON'],
-                    sample['PTT_IDX'], sample['PTT_YEAR_IDX']
-                ])
-
-            yearsOutput+=1
-
-    if iteration <= config.MaximumIteration:
-        if verbose:
-            print "We must have run out of PTT Sample Years for the specified number of Iterations/Num Years"
-
-
+    return collarYearList
 
 def preprocess(config):
     startTime = time.time()
