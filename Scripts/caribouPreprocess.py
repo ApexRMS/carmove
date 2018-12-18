@@ -772,7 +772,7 @@ def sampleRandomCollarData(collarData, config, csvWriter, verbose):
 
             # Now that we're at Calving Peak, write out samples till we get to
             # Calving Peak again ( or Start Date if last year)
-            for sampleIdx in range(startIdx, len(sampleYearData) - 1):
+            for sampleIdx in range(startIdx, len(sampleYearData)):
                 sample = sampleYearData[sampleIdx]
                 if yearIdx == num_years:
                     if startDateLead:
@@ -814,99 +814,105 @@ def sampleCompleteCollarData(collarData, config, csvWriter, verbose):
     uniquePTTIdx = numpy.unique(collarData['PTT_IDX'])
 
     # Loop thru the number of iterations specified
-    for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
+    # for iteration in range(config.MinimumIteration, config.MaximumIteration + 1):
+    iteration = config.MinimumIteration
+    yearsOutput = 0
+    calendarYearIdx = 1
 
-        # Loop thru the number of Caribou (PTT)
-        for pttIdx in range(1, len(uniquePTTIdx)):
+    # Loop thru the number of Caribou (PTT)
+    for pttIdx in range(1, len(uniquePTTIdx)):
 
-            mask = collarData['PTT_IDX'] == pttIdx
-            pttCollarData = collarData[mask,]
-            uniqueYears = numpy.unique(pttCollarData['PTT_YEAR_IDX'])
+        # Have we done enough iterations
+        if iteration > config.MaximumIteration:
+            break
 
+        mask = collarData['PTT_IDX'] == pttIdx
+        pttCollarData = collarData[mask,]
+        uniqueYears = numpy.unique(pttCollarData['PTT_YEAR_IDX'])
 
-            # Loop thru the number of years specified
-            sampleYearIdx = 0
-            calendarYearIdx = 1
-            yearsOutput = 0
+        for sampleYearIdx in range(1, len(uniqueYears)+1):
 
-            while True:
-
-                # See if we've got as many years as we needed
-                if yearsOutput >= num_years:
+            # See if we've got as many years as we needed
+            if yearsOutput >= num_years:
+                yearsOutput = 0
+                calendarYearIdx = 1
+                iteration +=1
+                if iteration > config.MaximumIteration:
                     break
 
-                sampleYearIdx +=1
-                if sampleYearIdx > len(uniqueYears):
+
+            print ("\tPerforming sample for iteration {0} year {1} ...".format(iteration, yearsOutput+1))
+
+            sampleYear = uniqueYears[sampleYearIdx-1]
+            years = [sampleYear, sampleYear+ 1]
+            mask = numpy.in1d(pttCollarData['PTT_YEAR_IDX'], years)
+            sampleYearData = pttCollarData[mask,]
+
+            # Also throw away the 366th day of any leap years. Do it now to make subsequent checks easier /leapyear tolerant
+            mask = numpy.in1d(sampleYearData['JULIAN_DAY'], 366)
+            mask = numpy.invert(mask)
+            sampleYearData = sampleYearData[mask,]
+
+            sampleYearData.sort(axis=0, order=['PTT_YEAR_IDX', 'JULIAN_DAY'])
+
+            # We need enough samples to go from Start Day to Start Day Next Year
+            sampleStartJDay = sampleYearData[0]['JULIAN_DAY']
+            numSamples = len(sampleYearData)
+            # Do we have at leave a years worth of samples and the 1st sample date is less or equal to the specified Start Day ?
+            if numSamples >=365 and sampleStartJDay <= start_julian_day:
+                # We're good
+                pass
+            else:
+                # Go try next year
+                if sampleYearIdx == 1:
+                    # Only give year 1 as break, subsequent years should be complete
                     if verbose:
                         print(
-                            "\t\tPTT {0} didn't have enough complete Sample years to fully satisfy Num Years = {1}.".format(pttIdx,num_years))
+                            "\t\tPTT {0} doesnt have enough samples in year {1}, so we'll take a stab at next year.".format(
+                                pttIdx, sampleYearIdx))
+                    continue
+                else:
+                    if verbose:
+                        print("\t\tPTT {0} ran out of samples in year {1}.".format(pttIdx, sampleYearIdx))
                     break
 
+            # Find the Start Date in the sampleYearData
+            for startIdx in range(0, numSamples):
+                sample = sampleYearData[startIdx]
+                if sample['JULIAN_DAY'] >= start_julian_day:
+                    break
 
-                print ("\tPerforming iteration {0} PTT {1} Year {2}...".format(iteration, pttIdx, sampleYearIdx))
+            # Now that we're at Start Day, write out samples for a year
+            if verbose:
+                print("\t\tSampling from PTT {0} year {1} for Iteration {2} Year {3}.".format(pttIdx, sampleYearIdx,
+                                                                                              iteration, yearsOutput+1))
 
-                sampleYear = uniqueYears[sampleYearIdx-1]
-                years = [sampleYear, sampleYear+ 1]
-                mask = numpy.in1d(pttCollarData['PTT_YEAR_IDX'], years)
-                sampleYearData = pttCollarData[mask,]
+            for sampleIdx in range(startIdx, len(sampleYearData)):
+                sample = sampleYearData[sampleIdx]
 
-                # Also throw away the 366th day of any leap years. Do it now to make subsequent checks easier /leapyear tolerant
-                mask = numpy.in1d(sampleYearData['JULIAN_DAY'], 366)
-                mask = numpy.invert(mask)
-                sampleYearData = sampleYearData[mask,]
+                # Wrapped around a year and come back to the Start Day ?
+                if sample['JULIAN_DAY'] >= start_julian_day and sampleYearIdx != sample['PTT_YEAR_IDX']:
+                    break
 
-                sampleYearData.sort(axis=0, order=['PTT_YEAR_IDX', 'JULIAN_DAY'])
+                # If we're looping thru Jan 1, increment the year count
+                if start_julian_day > 1 and sample['JULIAN_DAY'] == 1:
+                    calendarYearIdx += 1
 
-                # We need enough samples to go from Start Day to Start Day Next Year
-                sampleStartJDay = sampleYearData[0]['JULIAN_DAY']
-                numSamples = len(sampleYearData)
-                # Do we have at leave a years worth of samples and the 1st sample date is less or equal to the specified Start Day ?
-                if numSamples >=365 and sampleStartJDay <= start_julian_day:
-                    # We're good
-                    pass
-                else:
-                    # Go try next year
-                    if sampleYearIdx == 1:
-                        # Only give year 1 as break, subsequent years should be complete
-                        if verbose:
-                            print(
-                                "\t\tPTT {0} doesnt have enough samples in year {1}, so we'll take a stab at next year.".format(
-                                    pttIdx, sampleYearIdx))
-                        continue
-                    else:
-                        if verbose:
-                            print("\t\tPTT {0} ran out of samples in year {1}.".format(pttIdx, sampleYearIdx))
-                        break
+                # Write out all sample days from Start Day to Season Start
+                # ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY','LAT', 'LON','PTT_IDX','YEAR_IDX'])
+                csvWriter.writerow([
+                    iteration,
+                    calendarYearIdx,
+                    sample['JULIAN_DAY'],
+                    sample['LAT'], sample['LON'],
+                    sample['PTT_IDX'], sample['PTT_YEAR_IDX']
+                ])
 
-                # Find the Start Date in the sampleYearData
-                for startIdx in range(0, numSamples):
-                    sample = sampleYearData[startIdx]
-                    if sample['JULIAN_DAY'] >= start_julian_day:
-                        break
+            yearsOutput+=1
 
-                # Now that we're at Start Day, write out samples for a year
-                for sampleIdx in range(startIdx, len(sampleYearData) - 1):
-                    sample = sampleYearData[sampleIdx]
-
-                    # Wrapped around a year and come back to the Start Day ?
-                    if sample['JULIAN_DAY'] >= start_julian_day and sampleYearIdx != sample['PTT_YEAR_IDX']:
-                        break
-
-                    # If we're looping thru Jan 1, increment the year count
-                    if start_julian_day > 1 and sample['JULIAN_DAY'] == 1:
-                        calendarYearIdx += 1
-
-                    # Write out all sample days from Start Day to Season Start
-                    # ['ITERATION_ID', 'YEAR_ID', 'JULIAN_DAY','LAT', 'LON','PTT_IDX','YEAR_IDX'])
-                    csvWriter.writerow([
-                        iteration,
-                        calendarYearIdx,
-                        sample['JULIAN_DAY'],
-                        sample['LAT'], sample['LON'],
-                        sample['PTT_IDX'], sample['PTT_YEAR_IDX']
-                    ])
-
-                yearsOutput+=1
+    if iteration <= config.MaximumIteration:
+        if verbose:
+            print "We must have run out of PTT Sample Years for the specified number of Iterations/Num Years"
 
 
 
