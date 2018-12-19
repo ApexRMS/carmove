@@ -34,7 +34,6 @@ Module Utilities
         End If
     End Function
 
-
     Public Sub GetTerminology(
         ByVal project As Project,
         ByRef outStratumLabelX As String,
@@ -104,23 +103,23 @@ Module Utilities
         ByVal renameExportFileFunction As RenameExportFileDelegate)
 
         ' We need to repackage the raster files as specified by the Multiband Grouping setting for External 
-        Dim mbGrouping = RasterMultiband.GetMultibandGroupingExternal(resultScenarios(0).Library)
-
+        Dim library As Library = resultScenarios(0).Library
+        Dim mbGrouping = Spatial.GetExternalMultiBandGrouping(library)
         Dim filesCopied As Boolean = False
 
         For Each scenario As Scenario In resultScenarios
 
             ' Copy any Map Type files to a temp directory
-            Dim sourceDir As String = RasterFiles.GetOutputFolderLegacy(scenario, False)
+            Dim sourceDir As String = Spatial.GetLegacySpatialOutputFolderName(scenario, False)
             Dim tempDir = CreateTempDir()
             CopyFiles(sourceDir, tempDir, fileFilterRegex)
 
             'Check to see if they're already multibanded appropriately. If so, then extracting and recombining is a waste of time
             If GetFolderMultibandGrouping(tempDir) <> mbGrouping Then
                 ' Extract then to single files if appropriate
-                ConvertMultibandRastersToSingles(tempDir, tempDir)
+                ConvertMultibandRastersToSingles(tempDir, tempDir, library)
                 ' Recombine them using specified Multiband Grouping
-                RasterMultiband.ConvertAllSinglesToMultibandRasters(tempDir, mbGrouping)
+                Spatial.ConvertAllSinglesToMultiBandRasters(tempDir, mbGrouping, scenario.Library)
             End If
 
             ' And finally, copy to the user select destination, renaming then in the process
@@ -177,7 +176,7 @@ Module Utilities
 
     End Function
 
-    Private Function GetFolderMultibandGrouping(sourcePath As String) As MultibandGrouping
+    Private Function GetFolderMultibandGrouping(sourcePath As String) As MultiBandGrouping
 
         Dim files = Directory.GetFiles(sourcePath, "*.tif")
         For Each fileName In files
@@ -187,29 +186,29 @@ Module Utilities
             Dim m As Match = Regex.Match(fileName, fileFilter)
             If Not m.Success Or m.Groups.Count <> 6 Then
                 ' We can't figure it out, so have to be pessemitic
-                Return MultibandGrouping.Undefined
+                Return MultiBandGrouping.Undefined
             Else
 
                 Dim iterGrp = m.Groups(2)
                 Dim tsGrp = m.Groups(4)
                 ' If both iteration and timestep known, then we're dealing with single band
                 If (iterGrp.Success) And tsGrp.Success Then
-                    Return MultibandGrouping.None
+                    Return MultiBandGrouping.None
                 End If
 
                 ' If neither Iteration or Timestep then All
                 If Not iterGrp.Success And Not tsGrp.Success Then
-                    Return MultibandGrouping.All
+                    Return MultiBandGrouping.All
                 End If
 
                 ' Only iteration
                 If (iterGrp.Success) And Not tsGrp.Success Then
-                    Return MultibandGrouping.Timestep
+                    Return MultiBandGrouping.Timestep
                 End If
 
                 ' Only timestep
                 If Not (iterGrp.Success) And tsGrp.Success Then
-                    Return MultibandGrouping.Iteration
+                    Return MultiBandGrouping.Iteration
                 End If
 
             End If
@@ -217,12 +216,11 @@ Module Utilities
         Next
 
         Debug.Assert(False) ' Shouldnt get here
-        Return MultibandGrouping.Undefined
+        Return MultiBandGrouping.Undefined
 
     End Function
 
-    Public Sub ConvertMultibandRastersToSingles(sourcePath As String, destPath As String)
-
+    Public Sub ConvertMultibandRastersToSingles(sourcePath As String, destPath As String, library As Library)
 
         ' Lets extract all the indiviual bands from a multiband TIFF file
         Dim files = Directory.GetFiles(sourcePath, "*.vrt")
@@ -232,7 +230,7 @@ Module Utilities
             Dim dicBand = BuildBandDict(multbandFilename)
 
             For Each bandName In dicBand.Keys
-                ExtractBand(destPath, multbandFilename, dicBand, bandName)
+                ExtractBand(destPath, multbandFilename, dicBand, bandName, library)
             Next
 
             ' Remove the source files ( vrt and tif)
@@ -245,12 +243,16 @@ Module Utilities
 
         Next
 
-
     End Sub
 
-    Friend Function ExtractBand(destFolder As String, multibandFilename As String, dicBands As Dictionary(Of String, Integer), bandName As String) As String
+    Friend Function ExtractBand(
+        destFolder As String,
+        multibandFilename As String,
+        dicBands As Dictionary(Of String, Integer),
+        bandName As String,
+        library As Library) As String
 
-        Dim bandNum As Integer?
+        Dim bandNum As Integer
         Dim extractFilename As String = Path.Combine(destFolder, bandName)
 
         If (Not Directory.Exists(Path.GetDirectoryName(extractFilename))) Then
@@ -264,10 +266,7 @@ Module Utilities
         End If
 
         bandNum = dicBands.Item(bandName)
-
-        Translate.GdalTranslate(multibandFilename, extractFilename, GdalOutputFormat.GTiff, GdalOutputType.CFloat64, GeoTiffCompressionType.DEFLATE, bandNum)
-
-        Return extractFilename
+        Return Spatial.ExtractBand(library, destFolder, multibandFilename, bandNum, extractFilename)
 
     End Function
 
