@@ -509,6 +509,9 @@ def calcApproxDist(lon1, lat1, lon2, lat2):
     import math
     from shapely.geometry import Point
 
+    if lat1 == lat2 and lon1 == lon2:
+        return 0.0
+
     point1 = Point(lon1,lat1)
     point2 = Point(lon2, lat2)
 
