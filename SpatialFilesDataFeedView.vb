@@ -123,7 +123,7 @@ Class SpatialFilesDataFeedView
 
     Private Sub ButtonCollarFileBrowse_Click(sender As System.Object, e As System.EventArgs) Handles ButtonChooseCollarFile.Click
 
-        Dim dlg As New OpenFileDialog
+        Dim dlg As New OpenFileDialog()
 
         dlg.Title = "Collar Data File"
         dlg.Filter = "Collar Data File (*.csv)|*.csv"
