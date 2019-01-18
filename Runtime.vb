@@ -1,5 +1,5 @@
 ﻿'*********************************************************************************************
-' Caribou Movement: A SyncroSim Module for simulating movement patterns of caribou populations
+' Caribou Movement: A SyncroSim Package for simulating movement patterns of caribou populations
 ' and their interaction with industrial developments.
 '
 ' Copyright © 2007-2018 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.
@@ -23,7 +23,7 @@ Class Runtime
     Public Overrides Sub Transform()
 
         Dim libName As String = Me.Library.Connection.ConnectionString
-        Dim app As String = Path.Combine(Me.ModuleLocation, "scripts\caribouMovement.bat")
+        Dim app As String = Path.Combine(Me.PackageLocation, "scripts\caribouMovement.bat")
         Dim args As String = String.Format(CultureInfo.InvariantCulture, """{0}"" {1}", libName, Me.ResultScenario.Id)
 
         Try
@@ -32,7 +32,7 @@ Class Runtime
 
             Dim sMsg As String = String.Format(CultureInfo.CurrentCulture, "Error executing external script file '{0}'.", app)
             Me.RecordStatus(StatusType.Failure, sMsg)
-            sMsg = String.Format(CultureInfo.CurrentCulture, "Error Log file is '{0}\scripts\caribouMovement.log'", Me.ModuleLocation)
+            sMsg = String.Format(CultureInfo.CurrentCulture, "Error Log file is '{0}\scripts\caribouMovement.log'", Me.PackageLocation)
             Me.RecordStatus(StatusType.Failure, sMsg)
 
             Throw

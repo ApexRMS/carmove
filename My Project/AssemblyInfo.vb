@@ -10,7 +10,7 @@ Imports System.Runtime.InteropServices
 ' Review the values of the assembly attributes
 
 <Assembly: AssemblyTitle("SyncroSim.CaribouMovement")>
-<Assembly: AssemblyDescription("Caribou Movement Module")>
+<Assembly: AssemblyDescription("Caribou Movement Package")>
 <Assembly: AssemblyCompany("ApexRMS")>
 <Assembly: AssemblyProduct("SyncroSim.CaribouMovement")>
 <Assembly: AssemblyCopyright("Copyright © 2007-2018 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.")>
