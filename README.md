@@ -1,2 +1,2 @@
-# carep
-A SyncroSim Package for the Caribou Energy Protein Model.
+# carmove
+A SyncroSim Package for the Caribou Movement Model.
