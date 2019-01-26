@@ -1,2 +1,2 @@
 # carmove
-A SyncroSim Package for the Caribou Movement Model.
+SyncroSim Base Package for simulating the movement of caribou across a landscape.
