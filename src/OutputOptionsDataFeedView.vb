@@ -2,7 +2,7 @@
 ' Caribou Movement: A SyncroSim Package for simulating movement patterns of caribou populations
 ' and their interaction with industrial developments.
 '
-' Copyright © 2007-2018 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.
+' Copyright © 2007-2019 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.
 '*********************************************************************************************
 
 Class OutputOptionsDataFeedView
