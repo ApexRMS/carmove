@@ -1,6 +1,5 @@
 ﻿'*********************************************************************************************
-' Caribou Movement: A SyncroSim Package for simulating movement patterns of caribou populations
-' and their interaction with industrial developments.
+' carmove: SyncroSim Base Package for simulating the movement of caribou across a landscape.
 '
 ' Copyright © 2007-2019 Apex Resource Management Solution Ltd. (ApexRMS). All rights reserved.
 '*********************************************************************************************
